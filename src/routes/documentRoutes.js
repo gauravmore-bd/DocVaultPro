@@ -58,11 +58,12 @@ router.get(
 
 // ♻️ Restore a specific version (requires edit permission)
 router.post(
-    '/:id/restore/:versionId',
-    verifyToken,
-    hasPermission('edit'),
-    documentController.restoreVersion
+  '/version/:versionId/restore',
+  verifyToken,
+  hasPermission('edit'),
+  documentController.restoreVersion
 );
+
 
 // 🤝 Share document with another user (requires edit permission)
 router.post(

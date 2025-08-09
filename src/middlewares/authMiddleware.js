@@ -13,9 +13,7 @@ const verifyToken = (req, res, next) => {
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        console.log('✅ Decoded Token:', decoded);
-
-        // Ensure both id and userId exist for compatibility
+        // Set user info on req for downstream middleware/controllers
         req.user = {
             ...decoded,
             id: decoded.userId ?? decoded.id
@@ -23,7 +21,6 @@ const verifyToken = (req, res, next) => {
 
         next();
     } catch (err) {
-        console.error('❌ JWT verification error:', err);
         return res.status(403).json({ message: 'Invalid or expired token' });
     }
 };

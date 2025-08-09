@@ -6,10 +6,6 @@ const { getVersionById } = require('../models/documentModels');
 // Upload a document
 exports.uploadDocument = async (req, res) => {
     try {
-        console.log("User from token:", req.user);
-        console.log("Uploaded file info:", req.file);
-        console.log("Request body:", req.body);
-
         if (!req.file) {
             return res.status(400).json({ message: 'No file uploaded' });
         }
@@ -51,11 +47,10 @@ exports.uploadDocument = async (req, res) => {
             versionId
         });
     } catch (error) {
-        console.error("Upload error stack:", error);
+        console.error("Upload error:", error);
         res.status(500).json({ message: 'Failed to upload document', error: error.message });
     }
 };
-
 
 // View document inline
 exports.viewDocument = async (req, res) => {
@@ -75,7 +70,7 @@ exports.viewDocument = async (req, res) => {
         res.setHeader('Content-Type', document.mime_type);
         res.setHeader('Content-Disposition', 'inline');
         fs.createReadStream(filePath).pipe(res);
-    } catch (err) {
+    } catch {
         res.status(500).json({ message: 'Error viewing document.' });
     }
 };
@@ -96,7 +91,7 @@ exports.downloadDocument = async (req, res) => {
         }
 
         res.download(filePath, document.original_name);
-    } catch (err) {
+    } catch {
         res.status(500).json({ message: 'Error downloading document.' });
     }
 };
@@ -147,7 +142,7 @@ exports.uploadNewVersion = async (req, res) => {
             });
 
         res.status(201).json({ message: 'New version uploaded', versionId });
-    } catch (error) {
+    } catch {
         res.status(500).json({ message: 'Failed to upload new version' });
     }
 };
@@ -161,7 +156,7 @@ exports.getDocumentVersions = async (req, res) => {
             .orderBy('created_at', 'desc');
 
         res.json(versions);
-    } catch (err) {
+    } catch {
         res.status(500).json({ message: 'Error fetching versions.' });
     }
 };
@@ -187,7 +182,7 @@ exports.downloadVersion = async (req, res) => {
         }
 
         return res.download(filePath, originalName);
-    } catch (err) {
+    } catch {
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
@@ -223,34 +218,49 @@ exports.restoreVersion = async (req, res) => {
             });
 
         return res.status(200).json({ message: 'Version restored successfully' });
-    } catch (err) {
+    } catch {
         return res.status(500).json({ message: 'Internal server error' });
     }
 };
 
 // Share a document
 exports.shareDocument = async (req, res) => {
-    try {
-        const { id: documentId } = req.params;
-        const { targetUserId } = req.body;
+  try {
+    const { id: documentId } = req.params;
+    const { targetUserId, permission = 'view' } = req.body;
 
-        const exists = await db('document_shares ')
-            .where({ document_id: documentId, shared_with: targetUserId })
-            .first();
-
-        if (exists) {
-            return res.status(400).json({ message: 'Document already shared.' });
-        }
-
-        await db('document_shares ').insert({
-            document_id: documentId,
-            shared_with: targetUserId,
-        });
-
-        res.status(201).json({ message: 'Document shared.' });
-    } catch (err) {
-        res.status(500).json({ message: 'Error sharing document.' });
+    if (!targetUserId) {
+      return res.status(400).json({ message: 'targetUserId is required' });
     }
+
+    const existingShare = await db('document_shares')
+      .where({ document_id: documentId, shared_with: targetUserId })
+      .first();
+
+    if (existingShare) {
+      if (existingShare.permission !== permission) {
+        await db('document_shares')
+          .where({ id: existingShare.id })
+          .update({ permission });
+
+        return res.status(200).json({ message: 'Document share permission updated.' });
+      }
+      return res.status(400).json({ message: 'Document already shared with this permission.' });
+    }
+
+    await db('document_shares').insert({
+      document_id: documentId,
+      shared_with: targetUserId,
+      permission,
+      shared_by: req.user.id,
+      shared_at: new Date(),
+    });
+
+    res.status(201).json({ message: 'Document shared.' });
+  } catch (err) {
+    console.error('Error in shareDocument:', err);
+    res.status(500).json({ message: 'Error sharing document.' });
+  }
 };
 
 // Get documents shared with current user
@@ -258,13 +268,13 @@ exports.getSharedDocuments = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const documents = await db('document_shares  as sd')
+        const documents = await db('document_shares as sd')
             .join('documents as d', 'sd.document_id', 'd.id')
             .where('sd.shared_with', userId)
             .select('d.*');
 
         res.json(documents);
-    } catch (err) {
+    } catch {
         res.status(500).json({ message: 'Error fetching shared documents.' });
     }
 };
@@ -275,7 +285,7 @@ exports.getUserDocuments = async (req, res) => {
         const userId = req.user.id;
         const docs = await db('documents').where({ user_id: userId });
         res.json(docs);
-    } catch (err) {
+    } catch {
         res.status(500).json({ message: 'Error fetching your documents.' });
     }
 };
