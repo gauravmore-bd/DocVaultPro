@@ -6,10 +6,17 @@ const { getVersionById } = require('../models/documentModels');
 // Upload a document
 exports.uploadDocument = async (req, res) => {
     try {
-        const userId = req.user.id;
+        console.log("User from token:", req.user);
+        console.log("Uploaded file info:", req.file);
+        console.log("Request body:", req.body);
 
         if (!req.file) {
             return res.status(400).json({ message: 'No file uploaded' });
+        }
+
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ message: 'Invalid or missing user ID' });
         }
 
         const { filename, originalname, mimetype, size } = req.file;
@@ -44,9 +51,11 @@ exports.uploadDocument = async (req, res) => {
             versionId
         });
     } catch (error) {
-        res.status(500).json({ message: 'Failed to upload document' });
+        console.error("Upload error stack:", error);
+        res.status(500).json({ message: 'Failed to upload document', error: error.message });
     }
 };
+
 
 // View document inline
 exports.viewDocument = async (req, res) => {
@@ -225,7 +234,7 @@ exports.shareDocument = async (req, res) => {
         const { id: documentId } = req.params;
         const { targetUserId } = req.body;
 
-        const exists = await db('shared_documents')
+        const exists = await db('document_shares ')
             .where({ document_id: documentId, shared_with: targetUserId })
             .first();
 
@@ -233,7 +242,7 @@ exports.shareDocument = async (req, res) => {
             return res.status(400).json({ message: 'Document already shared.' });
         }
 
-        await db('shared_documents').insert({
+        await db('document_shares ').insert({
             document_id: documentId,
             shared_with: targetUserId,
         });
@@ -249,7 +258,7 @@ exports.getSharedDocuments = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const documents = await db('shared_documents as sd')
+        const documents = await db('document_shares  as sd')
             .join('documents as d', 'sd.document_id', 'd.id')
             .where('sd.shared_with', userId)
             .select('d.*');

@@ -13,10 +13,14 @@ const verifyToken = (req, res, next) => {
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        // ✅ Add this log
         console.log('✅ Decoded Token:', decoded);
 
-        req.user = decoded;
+        // Ensure both id and userId exist for compatibility
+        req.user = {
+            ...decoded,
+            id: decoded.userId ?? decoded.id
+        };
+
         next();
     } catch (err) {
         console.error('❌ JWT verification error:', err);

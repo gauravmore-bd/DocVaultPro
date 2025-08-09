@@ -5,7 +5,7 @@ const hasPermission = require('../middlewares/hasPermission');
 const upload = require('../utils/multer');
 const documentController = require('../controllers/documentController');
 
-// Upload a new document
+// 📂 Upload a new document (owner only after creation)
 router.post(
     '/upload',
     verifyToken,
@@ -13,49 +13,70 @@ router.post(
     documentController.uploadDocument
 );
 
-// Get all documents uploaded by the logged-in user
+// 📜 Get all documents uploaded by the logged-in user
 router.get('/my', verifyToken, documentController.getUserDocuments);
 
-// Download original document (owner or shared user)
-router.get('/download/:id', verifyToken, hasPermission, documentController.downloadDocument);
+// 📥 Download original document (requires at least view permission)
+router.get(
+    '/download/:id',
+    verifyToken,
+    hasPermission('view'),
+    documentController.downloadDocument
+);
 
-// View document inline (owner or shared user)
-router.get('/view/:id', verifyToken, hasPermission, documentController.viewDocument);
+// 👀 View document inline (requires at least view permission)
+router.get(
+    '/view/:id',
+    verifyToken,
+    hasPermission('view'),
+    documentController.viewDocument
+);
 
-// Upload a new version of the document (owner only)
+// ✏️ Upload a new version of the document (requires edit permission)
 router.post(
     '/:id/version',
     verifyToken,
-    hasPermission,
+    hasPermission('edit'),
     upload.single('file'),
     documentController.uploadNewVersion
 );
 
-// Get all versions of a document (owner or shared user)
-router.get('/:id/versions', verifyToken, hasPermission, documentController.getDocumentVersions);
+// 🗂 Get all versions of a document (requires at least view permission)
+router.get(
+    '/:id/versions',
+    verifyToken,
+    hasPermission('view'),
+    documentController.getDocumentVersions
+);
 
-// ✅ Secure version routes by resolving permission inside controller (not here)
+// 📥 Download a specific version (check handled in controller or require view)
 router.get(
     '/version/:versionId/download',
     verifyToken,
-    documentController.downloadVersion
+    documentController.downloadVersion // Permission checked inside controller
 );
 
+// ♻️ Restore a specific version (requires edit permission)
 router.post(
     '/:id/restore/:versionId',
     verifyToken,
+    hasPermission('edit'),
     documentController.restoreVersion
 );
 
-// Share document with another user (owner only)
+// 🤝 Share document with another user (requires edit permission)
 router.post(
     '/:id/share',
     verifyToken,
-    hasPermission,
+    hasPermission('edit'),
     documentController.shareDocument
 );
 
-// Get documents shared *with* the user
-router.get('/shared/with-me', verifyToken, documentController.getSharedDocuments);
+// 📄 Get documents shared with the logged-in user
+router.get(
+    '/shared/with-me',
+    verifyToken,
+    documentController.getSharedDocuments
+);
 
 module.exports = router;
